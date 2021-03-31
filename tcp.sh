@@ -4,10 +4,8 @@ export PATH
 
 #=================================================
 #	System Required: CentOS 6/7,Debian 8/9,Ubuntu 16+
-#	Description: BBR+BBR魔改版+BBRplus+Lotserver
+#	Description: BBR+BBRplus
 #	Version: 1.3.2
-#	Author: 千影,cx9208
-#	Blog: https://www.94ish.me/
 #=================================================
 
 sh_ver="1.3.2"
@@ -78,31 +76,6 @@ installbbrplus(){
 	fi
 }
 
-#安装Lotserver内核
-installlot(){
-	if [[ "${release}" == "centos" ]]; then
-		rpm --import http://${github}/lotserver/${release}/RPM-GPG-KEY-elrepo.org
-		yum remove -y kernel-firmware
-		yum install -y http://${github}/lotserver/${release}/${version}/${bit}/kernel-firmware-${kernel_version}.rpm
-		yum install -y http://${github}/lotserver/${release}/${version}/${bit}/kernel-${kernel_version}.rpm
-		yum remove -y kernel-headers
-		yum install -y http://${github}/lotserver/${release}/${version}/${bit}/kernel-headers-${kernel_version}.rpm
-		yum install -y http://${github}/lotserver/${release}/${version}/${bit}/kernel-devel-${kernel_version}.rpm
-	elif [[ "${release}" == "ubuntu" ]]; then
-		bash <(wget --no-check-certificate -qO- "http://${github}/Debian_Kernel.sh")
-	elif [[ "${release}" == "debian" ]]; then
-		bash <(wget --no-check-certificate -qO- "http://${github}/Debian_Kernel.sh")
-	fi
-	detele_kernel
-	BBR_grub
-	echo -e "${Tip} 重启VPS后，请重新运行脚本开启${Red_font_prefix}Lotserver${Font_color_suffix}"
-	stty erase '^H' && read -p "需要重启VPS后，才能开启Lotserver，是否现在重启 ? [Y/n] :" yn
-	[ -z "${yn}" ] && yn="y"
-	if [[ $yn == [Yy] ]]; then
-		echo -e "${Info} VPS 重启中..."
-		reboot
-	fi
-}
 
 #启用BBR
 startbbr(){
@@ -122,101 +95,6 @@ startbbrplus(){
 	echo -e "${Info}BBRplus启动成功！"
 }
 
-#编译并启用BBR魔改
-startbbrmod(){
-	remove_all
-	if [[ "${release}" == "centos" ]]; then
-		yum install -y make gcc
-		mkdir bbrmod && cd bbrmod
-		wget -N --no-check-certificate http://${github}/bbr/tcp_tsunami.c
-		echo "obj-m:=tcp_tsunami.o" > Makefile
-		make -C /lib/modules/$(uname -r)/build M=`pwd` modules CC=/usr/bin/gcc
-		chmod +x ./tcp_tsunami.ko
-		cp -rf ./tcp_tsunami.ko /lib/modules/$(uname -r)/kernel/net/ipv4
-		insmod tcp_tsunami.ko
-		depmod -a
-	else
-		apt-get update
-		if [[ "${release}" == "ubuntu" && "${version}" = "14" ]]; then
-			apt-get -y install build-essential
-			apt-get -y install software-properties-common
-			add-apt-repository ppa:ubuntu-toolchain-r/test -y
-			apt-get update
-		fi
-		apt-get -y install make gcc
-		mkdir bbrmod && cd bbrmod
-		wget -N --no-check-certificate http://${github}/bbr/tcp_tsunami.c
-		echo "obj-m:=tcp_tsunami.o" > Makefile
-		ln -s /usr/bin/gcc /usr/bin/gcc-4.9
-		make -C /lib/modules/$(uname -r)/build M=`pwd` modules CC=/usr/bin/gcc-4.9
-		install tcp_tsunami.ko /lib/modules/$(uname -r)/kernel
-		cp -rf ./tcp_tsunami.ko /lib/modules/$(uname -r)/kernel/net/ipv4
-		depmod -a
-	fi
-	
-
-	echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-	echo "net.ipv4.tcp_congestion_control=tsunami" >> /etc/sysctl.conf
-	sysctl -p
-    cd .. && rm -rf bbrmod
-	echo -e "${Info}魔改版BBR启动成功！"
-}
-
-#编译并启用BBR魔改
-startbbrmod_nanqinlang(){
-	remove_all
-	if [[ "${release}" == "centos" ]]; then
-		yum install -y make gcc
-		mkdir bbrmod && cd bbrmod
-		wget -N --no-check-certificate https://raw.githubusercontent.com/chiakge/Linux-NetSpeed/master/bbr/centos/tcp_nanqinlang.c
-		echo "obj-m := tcp_nanqinlang.o" > Makefile
-		make -C /lib/modules/$(uname -r)/build M=`pwd` modules CC=/usr/bin/gcc
-		chmod +x ./tcp_nanqinlang.ko
-		cp -rf ./tcp_nanqinlang.ko /lib/modules/$(uname -r)/kernel/net/ipv4
-		insmod tcp_nanqinlang.ko
-		depmod -a
-	else
-		apt-get update
-		if [[ "${release}" == "ubuntu" && "${version}" = "14" ]]; then
-			apt-get -y install build-essential
-			apt-get -y install software-properties-common
-			add-apt-repository ppa:ubuntu-toolchain-r/test -y
-			apt-get update
-		fi
-		apt-get -y install make gcc-4.9
-		mkdir bbrmod && cd bbrmod
-		wget -N --no-check-certificate https://raw.githubusercontent.com/chiakge/Linux-NetSpeed/master/bbr/tcp_nanqinlang.c
-		echo "obj-m := tcp_nanqinlang.o" > Makefile
-		make -C /lib/modules/$(uname -r)/build M=`pwd` modules CC=/usr/bin/gcc-4.9
-		install tcp_nanqinlang.ko /lib/modules/$(uname -r)/kernel
-		cp -rf ./tcp_nanqinlang.ko /lib/modules/$(uname -r)/kernel/net/ipv4
-		depmod -a
-	fi
-	
-
-	echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
-	echo "net.ipv4.tcp_congestion_control=nanqinlang" >> /etc/sysctl.conf
-	sysctl -p
-	echo -e "${Info}魔改版BBR启动成功！"
-}
-
-#启用Lotserver
-startlotserver(){
-	remove_all
-	if [[ "${release}" == "centos" ]]; then
-		yum install ethtool
-	else
-		apt-get update
-		apt-get install ethtool
-	fi
-	bash <(wget --no-check-certificate -qO- https://raw.githubusercontent.com/chiakge/lotServer/master/Install.sh) install
-	sed -i '/advinacc/d' /appex/etc/config
-	sed -i '/maxmode/d' /appex/etc/config
-	echo -e "advinacc=\"1\"
-maxmode=\"1\"">>/appex/etc/config
-	/appex/bin/lotServer.sh restart
-	start_menu
-}
 
 #卸载全部加速
 remove_all(){
@@ -310,26 +188,6 @@ net.ipv4.ip_forward = 1">>/etc/sysctl.conf
 		reboot
 	fi
 }
-#更新脚本
-Update_Shell(){
-	echo -e "当前版本为 [ ${sh_ver} ]，开始检测最新版本..."
-	sh_new_ver=$(wget --no-check-certificate -qO- "http://${github}/tcp.sh"|grep 'sh_ver="'|awk -F "=" '{print $NF}'|sed 's/\"//g'|head -1)
-	[[ -z ${sh_new_ver} ]] && echo -e "${Error} 检测最新版本失败 !" && start_menu
-	if [[ ${sh_new_ver} != ${sh_ver} ]]; then
-		echo -e "发现新版本[ ${sh_new_ver} ]，是否更新？[Y/n]"
-		read -p "(默认: y):" yn
-		[[ -z "${yn}" ]] && yn="y"
-		if [[ ${yn} == [Yy] ]]; then
-			wget -N --no-check-certificate http://${github}/tcp.sh && chmod +x tcp.sh
-			echo -e "脚本已更新为最新版本[ ${sh_new_ver} ] !"
-		else
-			echo && echo "	已取消..." && echo
-		fi
-	else
-		echo -e "当前已是最新版本[ ${sh_new_ver} ] !"
-		sleep 5s
-	fi
-}
 
 #开始菜单
 start_menu(){
@@ -337,21 +195,16 @@ clear
 echo && echo -e " TCP加速 一键安装管理脚本 ${Red_font_prefix}[v${sh_ver}]${Font_color_suffix}
   -- 就是爱生活 | 94ish.me --
   
- ${Green_font_prefix}0.${Font_color_suffix} 升级脚本
 ————————————内核管理————————————
- ${Green_font_prefix}1.${Font_color_suffix} 安装 BBR/BBR魔改版内核
+ ${Green_font_prefix}1.${Font_color_suffix} 安装 BBR内核
  ${Green_font_prefix}2.${Font_color_suffix} 安装 BBRplus版内核 
- ${Green_font_prefix}3.${Font_color_suffix} 安装 Lotserver(锐速)内核
 ————————————加速管理————————————
- ${Green_font_prefix}4.${Font_color_suffix} 使用BBR加速
- ${Green_font_prefix}5.${Font_color_suffix} 使用BBR魔改版加速
- ${Green_font_prefix}6.${Font_color_suffix} 使用暴力BBR魔改版加速(不支持部分系统)
- ${Green_font_prefix}7.${Font_color_suffix} 使用BBRplus版加速
- ${Green_font_prefix}8.${Font_color_suffix} 使用Lotserver(锐速)加速
+ ${Green_font_prefix}3.${Font_color_suffix} 使用BBR加速
+ ${Green_font_prefix}4.${Font_color_suffix} 使用BBRplus版加速
 ————————————杂项管理————————————
- ${Green_font_prefix}9.${Font_color_suffix} 卸载全部加速
- ${Green_font_prefix}10.${Font_color_suffix} 系统配置优化
- ${Green_font_prefix}11.${Font_color_suffix} 退出脚本
+ ${Green_font_prefix}5.${Font_color_suffix} 卸载全部加速
+ ${Green_font_prefix}6.${Font_color_suffix} 系统配置优化
+ ${Green_font_prefix}7.${Font_color_suffix} 退出脚本
 ————————————————————————————————" && echo
 
 	check_status
@@ -362,11 +215,8 @@ echo && echo -e " TCP加速 一键安装管理脚本 ${Red_font_prefix}[v${sh_ve
 		
 	fi
 echo
-read -p " 请输入数字 [0-11]:" num
+read -p " 请输入数字 [1-7]:" num
 case "$num" in
-	0)
-	Update_Shell
-	;;
 	1)
 	check_sys_bbr
 	;;
@@ -374,35 +224,23 @@ case "$num" in
 	check_sys_bbrplus
 	;;
 	3)
-	check_sys_Lotsever
-	;;
-	4)
 	startbbr
 	;;
-	5)
-	startbbrmod
-	;;
-	6)
-	startbbrmod_nanqinlang
-	;;
-	7)
+	4)
 	startbbrplus
 	;;
-	8)
-	startlotserver
-	;;
-	9)
+	5)
 	remove_all
 	;;
-	10)
+	6)
 	optimizing_system
 	;;
-	11)
+	7)
 	exit 1
 	;;
 	*)
 	clear
-	echo -e "${Error}:请输入正确数字 [0-11]"
+	echo -e "${Error}:请输入正确数字 [1-7]"
 	sleep 5s
 	start_menu
 	;;
@@ -555,54 +393,6 @@ check_sys_bbrplus(){
 	fi
 }
 
-
-#检查安装Lotsever的系统要求
-check_sys_Lotsever(){
-	check_version
-	if [[ "${release}" == "centos" ]]; then
-		if [[ ${version} == "6" ]]; then
-			kernel_version="2.6.32-504"
-			installlot
-		elif [[ ${version} == "7" ]]; then
-			yum -y install net-tools
-			kernel_version="3.10.0-327"
-			installlot
-		else
-			echo -e "${Error} Lotsever不支持当前系统 ${release} ${version} ${bit} !" && exit 1
-		fi
-	elif [[ "${release}" == "debian" ]]; then
-		if [[ ${version} = "7" || ${version} = "8" ]]; then
-			if [[ ${bit} == "x64" ]]; then
-				kernel_version="3.16.0-4"
-				installlot
-			elif [[ ${bit} == "x32" ]]; then
-				kernel_version="3.2.0-4"
-				installlot
-			fi
-		elif [[ ${version} = "9" ]]; then
-			if [[ ${bit} == "x64" ]]; then
-				kernel_version="4.9.0-4"
-				installlot
-			fi
-		else
-			echo -e "${Error} Lotsever不支持当前系统 ${release} ${version} ${bit} !" && exit 1
-		fi
-	elif [[ "${release}" == "ubuntu" ]]; then
-		if [[ ${version} -ge "12" ]]; then
-			if [[ ${bit} == "x64" ]]; then
-				kernel_version="4.4.0-47"
-				installlot
-			elif [[ ${bit} == "x32" ]]; then
-				kernel_version="3.13.0-29"
-				installlot
-			fi
-		else
-			echo -e "${Error} Lotsever不支持当前系统 ${release} ${version} ${bit} !" && exit 1
-		fi
-	else
-		echo -e "${Error} Lotsever不支持当前系统 ${release} ${version} ${bit} !" && exit 1
-	fi
-}
 
 check_status(){
 	kernel_version=`uname -r | awk -F "-" '{print $1}'`
