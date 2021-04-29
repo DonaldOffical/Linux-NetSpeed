@@ -427,20 +427,7 @@ check_status(){
 			else 
 				run_status="BBR启动失败"
 			fi
-		elif [[ ${run_status} == "tsunami" ]]; then
-			run_status=`lsmod | grep "tsunami" | awk '{print $1}'`
-			if [[ ${run_status} == "tcp_tsunami" ]]; then
-				run_status="BBR魔改版启动成功"
-			else 
-				run_status="BBR魔改版启动失败"
-			fi
-		elif [[ ${run_status} == "nanqinlang" ]]; then
-			run_status=`lsmod | grep "nanqinlang" | awk '{print $1}'`
-			if [[ ${run_status} == "tcp_nanqinlang" ]]; then
-				run_status="暴力BBR魔改版启动成功"
-			else 
-				run_status="暴力BBR魔改版启动失败"
-			fi
+			
 		else 
 			run_status="未安装加速模块"
 		fi
